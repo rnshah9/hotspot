@@ -275,6 +275,29 @@ void buildPerLibrary(const TopDown* node, PerLibraryResults& results, QHash<QStr
         buildPerLibrary(&child, results, binaryToResultIndex, costs);
     }
 }
+
+void diffBottomUpResults(const BottomUp& a, const BottomUp* b, BottomUp* result_node, const Costs& costs_a,
+                          const Costs& costs_b, Costs* costs_result)
+{
+    for (const auto& node : a.children) {
+        const auto sibling = b->entryForSymbol(node.symbol);
+        if (sibling) {
+            BottomUp diffed;
+            diffed.id = node.id;
+            diffed.symbol = node.symbol;
+
+            for (int i = 0; i < costs_a.numTypes(); i++) {
+                costs_result->add(2 * i, diffed.id, costs_a.cost(i, node.id));
+                costs_result->add(2 * i + 1, diffed.id,
+                                  (static_cast<double>(costs_b.cost(i, sibling->id)) / costs_a.cost(i, node.id))
+                                      * 10000);
+            }
+
+            result_node->children.push_back(diffed);
+            diffBottomUpResults(node, sibling, &result_node->children.back(), costs_a, costs_b, costs_result);
+        }
+    }
+}
 }
 
 QString Data::prettifySymbol(const QString& name)
@@ -368,4 +391,35 @@ Data::ThreadEvents* Data::EventResults::findThread(qint32 pid, qint32 tid)
 const Data::ThreadEvents* Data::EventResults::findThread(qint32 pid, qint32 tid) const
 {
     return const_cast<Data::EventResults*>(this)->findThread(pid, tid);
+}
+
+BottomUpResults BottomUpResults::diffBottomUpResults(const BottomUpResults& a, const BottomUpResults& b)
+{
+    if (a.costs.numTypes() != b.costs.numTypes()) {
+        return {};
+    }
+
+    BottomUpResults results;
+
+    // mimic perf diff -c ratio
+    for (int i = 0; i < a.costs.numTypes(); i++) {
+        // only diff same type of costs
+        if (a.costs.typeName(i) != b.costs.typeName(i)) {
+            return {};
+        }
+
+        results.costs.addType(2 * i, a.costs.typeName(i), a.costs.unit(i));
+        results.costs.addTotalCost(2 * i, a.costs.totalCost(i));
+
+        // costs only support intergers but we need fractions
+        const auto ratioType = 2 * i + 1;
+        results.costs.addType(ratioType, QStringLiteral("Ratio %1").arg(a.costs.typeName(i)), Costs::Unit::Unknown);
+        results.costs.addTotalCost(ratioType, 10000);
+    }
+
+    ::diffBottomUpResults(a.root, &b.root, &results.root, a.costs, b.costs, &results.costs);
+
+    Data::BottomUp::initializeParents(&results.root);
+
+    return results;
 }

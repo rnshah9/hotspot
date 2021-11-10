@@ -25,6 +25,7 @@ public:
     ~PerfParser();
 
     void startParseFile(const QString& path);
+    void startParseFile(const QString& path, const QString& diffFile);
 
     void filterResults(const Data::FilterAction& filter);
 
@@ -49,12 +50,15 @@ signals:
     void parsingStarted();
     void summaryDataAvailable(const Data::Summary& data);
     void bottomUpDataAvailable(const Data::BottomUpResults& data);
+    void firstBottomUpDataAvailable(const Data::BottomUpResults& data);
+    void secondBottomUpDataAvailable(const Data::BottomUpResults& data);
     void topDownDataAvailable(const Data::TopDownResults& data);
     void perLibraryDataAvailable(const Data::PerLibraryResults& data);
     void callerCalleeDataAvailable(const Data::CallerCalleeResults& data);
     void tracepointDataAvailable(const Data::TracepointResults& data);
     void frequencyDataAvailable(const Data::FrequencyResults& data);
     void eventsAvailable(const Data::EventResults& events);
+    void secondEventsAvailable(const Data::EventResults& events);
     void parsingFinished();
     void parsingFailed(const QString& errorMessage);
     void progress(float progress);

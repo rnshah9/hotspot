@@ -12,6 +12,16 @@
 
 #include <cmath>
 
+// TODO c++17 use std::clamp
+static float clamp(float value, float min, float max)
+{
+    if (value < min)
+        return min;
+    if (value > max)
+        return max;
+    return value;
+}
+
 CostDelegate::CostDelegate(quint32 sortRole, quint32 totalCostRole, QObject* parent)
     : QStyledItemDelegate(parent)
     , m_sortRole(sortRole)
@@ -30,8 +40,8 @@ void CostDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, 
         return;
     }
 
-    const auto totalCost = index.data(m_totalCostRole).toULongLong();
-    const auto fraction = std::abs(float(cost) / totalCost);
+    const auto totalCost = index.data(m_totalCostRole).toLongLong();
+    const auto fraction = clamp(std::abs(float(cost) / totalCost), 0, 1);
 
     auto rect = option.rect;
     rect.setWidth(rect.width() * fraction);

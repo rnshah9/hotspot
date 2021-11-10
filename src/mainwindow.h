@@ -59,7 +59,7 @@ signals:
 
 private:
     void clear(bool isReload);
-    void openFile(const QString& path, bool isReload);
+    void openFile(const QString& path, bool isReload, const QString& diffFile = {});
     void closeEvent(QCloseEvent* event) override;
     void setupCodeNavigationMenu();
 

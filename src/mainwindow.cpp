@@ -131,6 +131,21 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_startPage, &StartPage::recordButtonClicked, this, &MainWindow::onRecordButtonClicked);
     connect(m_startPage, &StartPage::stopParseButtonClicked, this,
             static_cast<void (MainWindow::*)()>(&MainWindow::clear));
+    connect(m_startPage, &StartPage::diffButtonClicked, this, [this] {
+        const auto fileNameA = QFileDialog::getOpenFileName(this, tr("Open File A"), QDir::currentPath(),
+                                                            tr("Data Files (perf*.data perf.data.*);;All Files (*)"));
+        if (fileNameA.isEmpty()) {
+            return;
+        }
+
+        const auto fileNameB = QFileDialog::getOpenFileName(this, tr("Open File B"), QDir::currentPath(),
+                                                            tr("Data Files (perf*.data perf.data.*);;All Files (*)"));
+        if (fileNameB.isEmpty()) {
+            return;
+        }
+
+        openFile(fileNameA, false, fileNameB);
+    });
     connect(m_parser, &PerfParser::progress, m_startPage, &StartPage::onParseFileProgress);
     connect(this, &MainWindow::openFileError, m_startPage, &StartPage::onOpenFileError);
     connect(m_recordPage, &RecordPage::homeButtonClicked, this, &MainWindow::onHomeButtonClicked);
@@ -365,7 +380,7 @@ void MainWindow::clear()
     clear(false);
 }
 
-void MainWindow::openFile(const QString& path, bool isReload)
+void MainWindow::openFile(const QString& path, bool isReload, const QString& diffFile)
 {
     clear(isReload);
 
@@ -376,7 +391,10 @@ void MainWindow::openFile(const QString& path, bool isReload)
     m_pageStack->setCurrentWidget(m_startPage);
 
     // TODO: support input files of different types via plugins
-    m_parser->startParseFile(path);
+    if (diffFile.isEmpty())
+        m_parser->startParseFile(path);
+    else
+        m_parser->startParseFile(path, diffFile);
     m_reloadAction->setData(path);
     m_exportAction->setData(QUrl::fromLocalFile(file.absoluteFilePath() + QLatin1String(".perfparser")));
 

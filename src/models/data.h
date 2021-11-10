@@ -425,6 +425,8 @@ struct BottomUpResults
         return parent;
     }
 
+    static BottomUpResults diffBottomUpResults(const Data::BottomUpResults& a, const Data::BottomUpResults& b);
+
 private:
     quint32 maxBottomUpId = 0;
     QHash<quint32, BottomUp*> tidToBottomUp;
