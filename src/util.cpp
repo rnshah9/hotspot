@@ -127,13 +127,13 @@ QString Util::formatSymbol(const Data::Symbol& symbol, bool replaceEmptyString)
     return formatString(symbolString, replaceEmptyString);
 }
 
-QString Util::formatCost(quint64 cost)
+QString Util::formatCost(qint64 cost)
 {
     // resulting format: 1.234E56
     return QString::number(static_cast<double>(cost), 'G', 4);
 }
 
-QString Util::formatCostRelative(quint64 selfCost, quint64 totalCost, bool addPercentSign)
+QString Util::formatCostRelative(qint64 selfCost, qint64 totalCost, bool addPercentSign)
 {
     if (!totalCost) {
         return QString();

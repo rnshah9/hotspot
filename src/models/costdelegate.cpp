@@ -34,7 +34,7 @@ CostDelegate::~CostDelegate() = default;
 void CostDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
     // TODO: handle negative values
-    const auto cost = index.data(m_sortRole).toULongLong();
+    const auto cost = index.data(m_sortRole).toLongLong();
     if (cost == 0) {
         QStyledItemDelegate::paint(painter, option, index);
         return;

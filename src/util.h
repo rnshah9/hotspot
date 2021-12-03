@@ -51,8 +51,8 @@ struct HashCombine
 
 QString formatString(const QString& input, bool replaceEmptyString = true);
 QString formatSymbol(const Data::Symbol& symbol, bool replaceEmptyString = true);
-QString formatCost(quint64 cost);
-QString formatCostRelative(quint64 selfCost, quint64 totalCost, bool addPercentSign = false);
+QString formatCost(qint64 cost);
+QString formatCostRelative(qint64 selfCost, qint64 totalCost, bool addPercentSign = false);
 QString formatTimeString(quint64 nanoseconds, bool shortForm = false);
 QString formatFrequency(quint64 occurrences, quint64 nanoseconds);
 QString formatTooltip(int id, const Data::Symbol& symbol, const Data::Costs& costs);

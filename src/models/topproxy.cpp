@@ -46,7 +46,7 @@ bool TopProxy::filterAcceptsRow(int source_row, const QModelIndex& source_parent
     if (source_parent.isValid()) {
         return false;
     }
-    if (!sourceModel()->index(source_row, m_costColumn, source_parent).data(sortRole()).value<quint64>()) {
+    if (!sourceModel()->index(source_row, m_costColumn, source_parent).data(sortRole()).value<qint64>()) {
         return false;
     }
     return true;
