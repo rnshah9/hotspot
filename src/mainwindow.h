@@ -27,6 +27,7 @@ class StartPage;
 class ResultsPage;
 class RecordPage;
 class SettingsDialog;
+class DiffDialog;
 
 class MainWindow : public KParts::MainWindow
 {
@@ -71,6 +72,7 @@ private:
     RecordPage* m_recordPage;
     ResultsPage* m_resultsPage;
     SettingsDialog* m_settingsDialog;
+    DiffDialog* m_diffDialog;
 
     QString m_lastUsedSettings;
     KRecentFilesAction* m_recentFilesAction = nullptr;

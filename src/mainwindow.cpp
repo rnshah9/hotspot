@@ -8,6 +8,7 @@
 
 #include "mainwindow.h"
 #include "costcontextmenu.h"
+#include "diffdialog.h"
 #include "recordpage.h"
 #include "resultspage.h"
 #include "settings.h"
@@ -98,6 +99,7 @@ MainWindow::MainWindow(QWidget* parent)
     , m_recordPage(new RecordPage(this))
     , m_resultsPage(new ResultsPage(m_parser, this))
     , m_settingsDialog(new SettingsDialog(this))
+    , m_diffDialog(new DiffDialog(this))
 {
     ui->setupUi(this);
 
@@ -131,21 +133,13 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_startPage, &StartPage::recordButtonClicked, this, &MainWindow::onRecordButtonClicked);
     connect(m_startPage, &StartPage::stopParseButtonClicked, this,
             static_cast<void (MainWindow::*)()>(&MainWindow::clear));
-    connect(m_startPage, &StartPage::diffButtonClicked, this, [this] {
-        const auto fileNameA = QFileDialog::getOpenFileName(this, tr("Open File A"), QDir::currentPath(),
-                                                            tr("Data Files (perf*.data perf.data.*);;All Files (*)"));
-        if (fileNameA.isEmpty()) {
-            return;
-        }
 
-        const auto fileNameB = QFileDialog::getOpenFileName(this, tr("Open File B"), QDir::currentPath(),
-                                                            tr("Data Files (perf*.data perf.data.*);;All Files (*)"));
-        if (fileNameB.isEmpty()) {
-            return;
-        }
-
-        openFile(fileNameA, false, fileNameB);
+    connect(m_startPage, &StartPage::diffButtonClicked, this, [this] { m_diffDialog->open(); });
+    connect(m_diffDialog, &QDialog::accepted, this, [this] {
+        m_diffDialog->close();
+        openFile(m_diffDialog->fileA(), false, m_diffDialog->fileB());
     });
+
     connect(m_parser, &PerfParser::progress, m_startPage, &StartPage::onParseFileProgress);
     connect(this, &MainWindow::openFileError, m_startPage, &StartPage::onOpenFileError);
     connect(m_recordPage, &RecordPage::homeButtonClicked, this, &MainWindow::onHomeButtonClicked);
