@@ -72,9 +72,9 @@ RecordType selectedRecordType(const QScopedPointer<Ui::RecordPage>& ui)
     return ui->recordTypeComboBox->currentData().value<RecordType>();
 }
 
-void updateStartRecordingButtonState(const QScopedPointer<Ui::RecordPage>& ui)
+void updateStartRecordingButtonState(PerfRecord* record, const QScopedPointer<Ui::RecordPage>& ui)
 {
-    if (!PerfRecord::isPerfInstalled()) {
+    if (!record->isPerfInstalled()) {
         ui->startRecordingButton->setEnabled(false);
         ui->applicationRecordErrorMessage->setText(QObject::tr("Please install perf before trying to record."));
         ui->applicationRecordErrorMessage->setVisible(true);
@@ -361,7 +361,7 @@ RecordPage::RecordPage(QWidget* parent)
     ui->processesTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->processesTableView->setSelectionMode(QAbstractItemView::MultiSelection);
     connect(ui->processesTableView->selectionModel(), &QItemSelectionModel::selectionChanged, this,
-            [this]() { updateStartRecordingButtonState(ui); });
+            [this]() { updateStartRecordingButtonState(m_perfRecord, ui); });
 
     ResultsUtil::connectFilter(ui->processesFilterBox, m_processProxyModel);
 
@@ -387,7 +387,7 @@ RecordPage::RecordPage(QWidget* parent)
     ui->sampleCpuCheckBox->setChecked(config().readEntry(QStringLiteral("sampleCpu"), true));
     ui->mmapPagesSpinBox->setValue(config().readEntry(QStringLiteral("mmapPages"), 0));
     ui->mmapPagesUnitComboBox->setCurrentIndex(config().readEntry(QStringLiteral("mmapPagesUnit"), 2));
-    ui->useAioCheckBox->setChecked(config().readEntry(QStringLiteral("useAio"), PerfRecord::canUseAio()));
+    ui->useAioCheckBox->setChecked(config().readEntry(QStringLiteral("useAio"), m_perfRecord->canUseAio()));
 
     const auto callGraph = config().readEntry("callGraph", ui->callGraphComboBox->currentData());
     const auto callGraphIdx = ui->callGraphComboBox->findData(callGraph);
@@ -419,19 +419,19 @@ RecordPage::RecordPage(QWidget* parent)
         }
     });
 
-    if (!PerfRecord::canSampleCpu()) {
+    if (!m_perfRecord->canSampleCpu()) {
         ui->sampleCpuCheckBox->hide();
         ui->sampleCpuLabel->hide();
     }
-    if (!PerfRecord::canSwitchEvents()) {
+    if (!m_perfRecord->canSwitchEvents()) {
         ui->offCpuCheckBox->hide();
         ui->offCpuLabel->hide();
     }
-    if (!PerfRecord::canUseAio()) {
+    if (!m_perfRecord->canUseAio()) {
         ui->useAioCheckBox->hide();
         ui->useAioLabel->hide();
     }
-    if (!PerfRecord::canCompress()) {
+    if (!m_perfRecord->canCompress()) {
         ui->compressionComboBox->hide();
         ui->compressionLabel->hide();
     } else {
@@ -504,24 +504,24 @@ void RecordPage::onStartRecordingButtonClicked(bool checked)
         perfOptions += KShell::splitArgs(customOptions);
 
         const bool offCpuProfilingEnabled = ui->offCpuCheckBox->isChecked();
-        if (offCpuProfilingEnabled && PerfRecord::canSwitchEvents()) {
+        if (offCpuProfilingEnabled && m_perfRecord->canSwitchEvents()) {
             if (eventType.isEmpty()) {
                 // TODO: use clock event in VM context
                 perfOptions += QStringLiteral("--event");
                 perfOptions += QStringLiteral("cycles");
             }
-            perfOptions += PerfRecord::offCpuProfilingOptions();
+            perfOptions += m_perfRecord->offCpuProfilingOptions();
         }
         config().writeEntry(QStringLiteral("offCpuProfiling"), offCpuProfilingEnabled);
 
         const bool useAioEnabled = ui->useAioCheckBox->isChecked();
-        if (useAioEnabled && PerfRecord::canUseAio()) {
+        if (useAioEnabled && m_perfRecord->canUseAio()) {
             perfOptions += QStringLiteral("--aio");
         }
         config().writeEntry(QStringLiteral("useAio"), useAioEnabled);
 
         const auto compressionLevel = ui->compressionComboBox->currentData().toInt();
-        if (PerfRecord::canCompress() && compressionLevel >= 0) {
+        if (m_perfRecord->canCompress() && compressionLevel >= 0) {
             if (compressionLevel == 0)
                 perfOptions += QStringLiteral("-z");
             else
@@ -532,7 +532,7 @@ void RecordPage::onStartRecordingButtonClicked(bool checked)
         const bool elevatePrivileges = ui->elevatePrivilegesCheckBox->isChecked();
 
         const bool sampleCpuEnabled = ui->sampleCpuCheckBox->isChecked();
-        if (sampleCpuEnabled && PerfRecord::canSampleCpu()) {
+        if (sampleCpuEnabled && m_perfRecord->canSampleCpu()) {
             perfOptions += QStringLiteral("--sample-cpu");
         }
 
@@ -653,7 +653,7 @@ void RecordPage::onApplicationNameChanged(const QString& filePath)
 
         m_multiConfig->setConfig(applicationConfig(ui->applicationName->text()));
     }
-    updateStartRecordingButtonState(ui);
+    updateStartRecordingButtonState(m_perfRecord, ui);
 }
 
 void RecordPage::onWorkingDirectoryNameChanged(const QString& folderPath)
@@ -669,7 +669,7 @@ void RecordPage::onWorkingDirectoryNameChanged(const QString& folderPath)
     } else {
         setError({});
     }
-    updateStartRecordingButtonState(ui);
+    updateStartRecordingButtonState(m_perfRecord, ui);
 }
 
 void RecordPage::onViewPerfRecordResultsButtonClicked()
@@ -695,7 +695,7 @@ void RecordPage::onOutputFileNameChanged(const QString& /*filePath*/)
     } else {
         setError({});
     }
-    updateStartRecordingButtonState(ui);
+    updateStartRecordingButtonState(m_perfRecord, ui);
 }
 
 void RecordPage::onOutputFileNameSelected(const QString& filePath)
@@ -727,7 +727,7 @@ void RecordPage::updateProcessesFinished()
 
     if (selectedRecordType(ui) == AttachToProcess) {
         // only update the state when we show the attach app page
-        updateStartRecordingButtonState(ui);
+        updateStartRecordingButtonState(m_perfRecord, ui);
         QTimer::singleShot(1000, this, &RecordPage::updateProcesses);
     }
 }
@@ -754,23 +754,23 @@ void RecordPage::updateRecordType()
     m_perfOutput->setInputVisible(recordType == LaunchApplication);
     m_perfOutput->clear();
     ui->elevatePrivilegesCheckBox->setEnabled(recordType != ProfileSystem);
-    ui->sampleCpuCheckBox->setEnabled(recordType != ProfileSystem && PerfRecord::canSampleCpu());
+    ui->sampleCpuCheckBox->setEnabled(recordType != ProfileSystem && m_perfRecord->canSampleCpu());
     if (recordType == ProfileSystem) {
         ui->elevatePrivilegesCheckBox->setChecked(true);
-        ui->sampleCpuCheckBox->setChecked(true && PerfRecord::canSampleCpu());
+        ui->sampleCpuCheckBox->setChecked(true && m_perfRecord->canSampleCpu());
     }
 
     if (recordType == AttachToProcess) {
         updateProcesses();
     }
 
-    updateStartRecordingButtonState(ui);
+    updateStartRecordingButtonState(m_perfRecord, ui);
 }
 
 void RecordPage::updateOffCpuCheckboxState()
 {
     const bool enableOffCpuProfiling =
-        (ui->elevatePrivilegesCheckBox->isChecked() || PerfRecord::canProfileOffCpu()) && PerfRecord::canSwitchEvents();
+        (ui->elevatePrivilegesCheckBox->isChecked() || m_perfRecord->canProfileOffCpu()) && m_perfRecord->canSwitchEvents();
 
     if (enableOffCpuProfiling == ui->offCpuCheckBox->isEnabled()) {
         return;
