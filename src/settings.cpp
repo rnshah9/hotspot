@@ -132,3 +132,9 @@ void Settings::setCallgraphColors(const QColor& active, const QColor& inactive)
         emit callgraphChanged();
     }
 }
+
+void Settings::setSshaskpassPath(const QString& sshaskpath)
+{
+    m_sshaskpassPath = sshaskpath;
+    emit sshaskpassChanged(m_sshaskpassPath);
+}

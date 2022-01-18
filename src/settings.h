@@ -119,6 +119,11 @@ public:
         return m_callgraphColor;
     }
 
+    QString sshaskpassPath() const
+    {
+        return m_sshaskpassPath;
+    }
+
 signals:
     void prettifySymbolsChanged(bool);
     void collapseTemplatesChanged(bool);
@@ -134,6 +139,7 @@ signals:
     void archChanged(const QString& arch);
     void objdumpChanged(const QString& objdump);
     void callgraphChanged();
+    void sshaskpassChanged(const QString& path);
 
 public slots:
     void setPrettifySymbols(bool prettifySymbols);
@@ -152,6 +158,7 @@ public slots:
     void setCallgraphParentDepth(int parent);
     void setCallgraphChildDepth(int child);
     void setCallgraphColors(const QColor& active, const QColor& inactive);
+    void setSshaskpassPath(const QString& sshaskpath);
 
 private:
     Settings() = default;
@@ -172,6 +179,7 @@ private:
     QString m_appPath;
     QString m_arch;
     QString m_objdump;
+    QString m_sshaskpassPath;
 
     int m_callgraphParentDepth = 3;
     int m_callgraphChildDepth = 2;

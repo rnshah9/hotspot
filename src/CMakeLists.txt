@@ -50,6 +50,7 @@ set(hotspot_SRCS
     perfoutputwidgettext.cpp
     perfoutputwidgetkonsole.cpp
     costcontextmenu.cpp
+    ssh.cpp
 
     # ui files:
     mainwindow.ui

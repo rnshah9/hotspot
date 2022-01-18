@@ -122,6 +122,8 @@ MainWindow::MainWindow(QWidget* parent)
         settings->setObjdump(m_settingsDialog->objdump());
     });
 
+    connect(m_settingsDialog, &QDialog::accepted, m_recordPage, &RecordPage::onRemoteDevicesChanged);
+
     connect(settings, &Settings::sysrootChanged, m_resultsPage, &ResultsPage::setSysroot);
     connect(settings, &Settings::appPathChanged, m_resultsPage, &ResultsPage::setAppPath);
     connect(settings, &Settings::objdumpChanged, m_resultsPage, &ResultsPage::setObjdump);
@@ -227,6 +229,9 @@ MainWindow::MainWindow(QWidget* parent)
         settings->setDebuginfodUrls(m_config->group("debuginfod").readEntry("urls", QStringList()));
         connect(Settings::instance(), &Settings::debuginfodUrlsChanged, this,
                 [this, settings] { m_config->group("debuginfod").writeEntry("urls", settings->debuginfodUrls()); });
+
+        const auto askpass = QStandardPaths::findExecutable(QLatin1String("ksshaskpass"));
+        settings->setSshaskpassPath(m_config->group("SSH").readEntry("sshaskpass", askpass));
     }
 
     auto* prettifySymbolsAction = ui->viewMenu->addAction(tr("Prettify Symbols"));

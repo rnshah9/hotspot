@@ -16,33 +16,11 @@
 #include <csignal>
 
 #include "hotspot-config.h"
-
-QString sshOutput(const QString& hostname, const QStringList& command)
-{
-    QProcess ssh;
-    ssh.setProgram(QStandardPaths::findExecutable(QLatin1String("ssh")));
-    const auto arguments = QStringList({hostname}) + command;
-    ssh.setArguments(arguments);
-    ssh.start();
-    ssh.waitForFinished();
-    return QString::fromUtf8(ssh.readAll());
-}
-
-int sshExitCode(const QString& hostname, const QStringList& command)
-{
-    QProcess ssh;
-    ssh.setProgram(QStandardPaths::findExecutable(QLatin1String("ssh")));
-    const auto arguments = QStringList({hostname}) + command;
-    ssh.setArguments(arguments);
-    ssh.start();
-    ssh.waitForFinished();
-    return ssh.exitCode();
-}
+#include "ssh.h"
 
 PerfRecordSSH::PerfRecordSSH(QObject* parent)
     : PerfRecord(parent)
 {
-    m_hostname = QStringLiteral("user@localhost");
 }
 
 PerfRecordSSH::~PerfRecordSSH() = default;
@@ -50,17 +28,17 @@ PerfRecordSSH::~PerfRecordSSH() = default;
 void PerfRecordSSH::record(const QStringList& perfOptions, const QString& outputPath, bool /*elevatePrivileges*/,
                            const QString& exePath, const QStringList& exeOptions, const QString& workingDirectory)
 {
-    int exitCode = sshExitCode(m_hostname, {QLatin1String("test"), QLatin1String("-e"), exePath});
+    int exitCode = sshExitCode(m_deviceName, {QLatin1String("test"), QLatin1String("-e"), exePath});
     if (exitCode) {
         emit recordingFailed(tr("File '%1' does not exist.").arg(exePath));
     }
 
-    exitCode = sshExitCode(m_hostname, {QLatin1String("test"), QLatin1String("-f"), exePath});
+    exitCode = sshExitCode(m_deviceName, {QLatin1String("test"), QLatin1String("-f"), exePath});
     if (exitCode) {
         emit recordingFailed(tr("'%1' is not a file.").arg(exePath));
     }
 
-    exitCode = sshExitCode(m_hostname, {QLatin1String("test"), QLatin1String("-x"), exePath});
+    exitCode = sshExitCode(m_deviceName, {QLatin1String("test"), QLatin1String("-x"), exePath});
     if (exitCode) {
         emit recordingFailed(tr("File '%1' is not executable.").arg(exePath));
     }
@@ -110,32 +88,32 @@ void PerfRecordSSH::sendInput(const QByteArray& input)
 
 QString PerfRecordSSH::currentUsername()
 {
-    if (m_hostname.isEmpty())
+    if (m_deviceName.isEmpty())
         return {};
-    return sshOutput(m_hostname, {QLatin1String("echo"), QLatin1String("$USERNAME")}).simplified();
+    return sshOutput(m_deviceName, {QLatin1String("echo"), QLatin1String("$USERNAME")}).simplified();
 }
 
 bool PerfRecordSSH::canTrace(const QString& path)
 {
-    if (m_hostname.isEmpty())
+    if (m_deviceName.isEmpty())
         return false;
 
     // exit code == 0 -> true
-    bool isDir = sshExitCode(m_hostname, {QLatin1String("test"), QLatin1String("-d"), path}) == 0;
-    bool isReadable = sshExitCode(m_hostname, {QLatin1String("test"), QLatin1String("-r"), path}) == 0;
+    bool isDir = sshExitCode(m_deviceName, {QLatin1String("test"), QLatin1String("-d"), path}) == 0;
+    bool isReadable = sshExitCode(m_deviceName, {QLatin1String("test"), QLatin1String("-r"), path}) == 0;
 
     if (!isDir || !isReadable) {
         return false;
     }
 
     QString paranoid =
-        sshOutput(m_hostname, {QLatin1String("cat"), QLatin1String("/proc/sys/kernel/perf_event_paranoid")});
+        sshOutput(m_deviceName, {QLatin1String("cat"), QLatin1String("/proc/sys/kernel/perf_event_paranoid")});
     return paranoid.trimmed() == QLatin1String("-1");
 }
 
 bool PerfRecordSSH::canProfileOffCpu()
 {
-    if (m_hostname.isEmpty())
+    if (m_deviceName.isEmpty())
         return false;
     return canTrace(QStringLiteral("events/sched/sched_switch"));
 }
@@ -166,16 +144,16 @@ static QString perfBuildOptions(const QString& hostname)
 
 bool PerfRecordSSH::canSampleCpu()
 {
-    if (m_hostname.isEmpty())
+    if (m_deviceName.isEmpty())
         return false;
-    return perfRecordHelp(m_hostname).contains(QLatin1String("--sample-cpu"));
+    return perfRecordHelp(m_deviceName).contains(QLatin1String("--sample-cpu"));
 }
 
 bool PerfRecordSSH::canSwitchEvents()
 {
-    if (m_hostname.isEmpty())
+    if (m_deviceName.isEmpty())
         return false;
-    return perfRecordHelp(m_hostname).contains(QLatin1String("--switch-events"));
+    return perfRecordHelp(m_deviceName).contains(QLatin1String("--switch-events"));
 }
 
 bool PerfRecordSSH::canUseAio()
@@ -186,16 +164,16 @@ bool PerfRecordSSH::canUseAio()
 
 bool PerfRecordSSH::canCompress()
 {
-    if (m_hostname.isEmpty())
+    if (m_deviceName.isEmpty())
         return false;
-    return Zstd_FOUND && perfBuildOptions(m_hostname).contains(QLatin1String("zstd: [ on  ]"));
+    return Zstd_FOUND && perfBuildOptions(m_deviceName).contains(QLatin1String("zstd: [ on  ]"));
 }
 
 bool PerfRecordSSH::isPerfInstalled()
 {
-    if (m_hostname.isEmpty())
+    if (m_deviceName.isEmpty())
         return false;
-    return sshExitCode(m_hostname, {QLatin1String("perf")}) != 127;
+    return sshExitCode(m_deviceName, {QLatin1String("perf")}) != 127;
 }
 
 void PerfRecordSSH::startRecording(const QStringList& perfOptions, const QString& outputPath,
@@ -230,11 +208,12 @@ void PerfRecordSSH::startRecording(const QStringList& perfOptions, const QString
 
     m_recordProcess = new QProcess(this);
     m_recordProcess->setProgram(QStandardPaths::findExecutable(QLatin1String("ssh")));
-    m_recordProcess->setArguments({m_hostname, QLatin1String("perf ") + perfCommand.join(QLatin1Char(' '))});
+    const auto arguments =
+        assembleSSHArguments(m_deviceName, {QLatin1String("perf ") + perfCommand.join(QLatin1Char(' '))});
+    m_recordProcess->setArguments(arguments);
+    m_recordProcess->setProcessEnvironment(sshEnvironment());
     m_recordProcess->start();
     m_recordProcess->waitForStarted();
-
-    qDebug() << m_recordProcess->arguments().join(QLatin1Char(' '));
 
     emit recordingStarted(QLatin1String("perf"), perfCommand);
 
