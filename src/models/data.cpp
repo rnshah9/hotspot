@@ -288,9 +288,7 @@ void diffBottomUpResults(const BottomUp& a, const BottomUp* b, BottomUp* result_
 
             for (int i = 0; i < costs_a.numTypes(); i++) {
                 costs_result->add(2 * i, diffed.id, costs_a.cost(i, node.id));
-                costs_result->add(2 * i + 1, diffed.id,
-                                  (static_cast<double>(costs_b.cost(i, sibling->id)) / costs_a.cost(i, node.id))
-                                      * 10000);
+                costs_result->add(2 * i + 1, diffed.id, costs_b.cost(i, sibling->id));
             }
 
             result_node->children.push_back(diffed);
@@ -408,13 +406,12 @@ BottomUpResults BottomUpResults::diffBottomUpResults(const BottomUpResults& a, c
             return {};
         }
 
-        results.costs.addType(2 * i, a.costs.typeName(i), a.costs.unit(i));
+        results.costs.addType(2 * i, QLatin1String("baseline %1").arg(a.costs.typeName(i)), a.costs.unit(i));
         results.costs.addTotalCost(2 * i, a.costs.totalCost(i));
 
-        // costs only support intergers but we need fractions
-        const auto ratioType = 2 * i + 1;
-        results.costs.addType(ratioType, QStringLiteral("Ratio %1").arg(a.costs.typeName(i)), Costs::Unit::Unknown);
-        results.costs.addTotalCost(ratioType, 10000);
+        const auto costBType = 2 * i + 1;
+        results.costs.addType(costBType, QLatin1String("ratio %1").arg(b.costs.typeName(i)), a.costs.unit(i));
+        results.costs.addTotalCost(costBType, b.costs.totalCost(0));
     }
 
     ::diffBottomUpResults(a.root, &b.root, &results.root, a.costs, b.costs, &results.costs);

@@ -74,6 +74,10 @@ QVariant BottomUpModel::rowData(const Data::BottomUp* row, int column, int role)
         if (role == SortRole) {
             return m_results.costs.cost(column - NUM_BASE_COLUMNS, row->id);
         }
+        if (m_diffMode && (column - NUM_BASE_COLUMNS) % 2 == 1) {
+            return Util::formatCostRelative(m_results.costs.cost(column - NUM_BASE_COLUMNS, row->id),
+                                            m_results.costs.cost(column - NUM_BASE_COLUMNS - 1, row->id), true);
+        }
         return Util::formatCostRelative(m_results.costs.cost(column - NUM_BASE_COLUMNS, row->id),
                                         m_results.costs.totalCost(column - NUM_BASE_COLUMNS), true);
     } else if (role == TotalCostRole && column >= NUM_BASE_COLUMNS) {
@@ -125,6 +129,11 @@ QVariant TopDownModel::headerColumnData(int column, int role) const
         }
 
         column -= m_results.inclusiveCosts.numTypes();
+        if (m_diffMode && column % 2 == 1) {
+            return tr("ratio of %1 (self)").arg(m_results.selfCosts.typeName(column));
+        } else if (m_diffMode) {
+            return tr("baseline %1 (self)").arg(m_results.selfCosts.typeName(column));
+        }
         return tr("%1 (self)").arg(m_results.selfCosts.typeName(column));
     } else if (role == Qt::ToolTipRole) {
         switch (column) {
@@ -169,6 +178,10 @@ QVariant TopDownModel::rowData(const Data::TopDown* row, int column, int role) c
             if (role == SortRole) {
                 return m_results.inclusiveCosts.cost(column, row->id);
             }
+            if (m_diffMode && column % 2 == 1) {
+                return Util::formatCostRelative(m_results.inclusiveCosts.cost(column, row->id),
+                                                m_results.inclusiveCosts.cost(column - 1, row->id), true);
+            }
             return Util::formatCostRelative(m_results.inclusiveCosts.cost(column, row->id),
                                             m_results.inclusiveCosts.totalCost(column), true);
         }
@@ -176,6 +189,10 @@ QVariant TopDownModel::rowData(const Data::TopDown* row, int column, int role) c
         column -= m_results.inclusiveCosts.numTypes();
         if (role == SortRole) {
             return m_results.selfCosts.cost(column, row->id);
+        }
+        if (m_diffMode && column % 2 == 1) {
+            return Util::formatCostRelative(m_results.selfCosts.cost(column, row->id),
+                                            m_results.selfCosts.cost(column - 1, row->id), true);
         }
         return Util::formatCostRelative(m_results.selfCosts.cost(column, row->id),
                                         m_results.selfCosts.totalCost(column), true);

@@ -1492,6 +1492,7 @@ void PerfParser::startParseFile(const QString& path)
 
         auto finalize = [&d, this]() {
             d.finalize();
+            emit useDiffMode(false);
             emit bottomUpDataAvailable(d.bottomUpResult);
             emit topDownDataAvailable(d.topDownResult);
             emit perLibraryDataAvailable(d.perLibraryResult);
@@ -1659,6 +1660,7 @@ void PerfParser::startParseFile(const QString& path, const QString& diffFile)
 
     Data::callerCalleesFromBottomUpData(m_bottomUpResults, &m_callerCalleeResults);
 
+    emit useDiffMode(true);
     emit bottomUpDataAvailable(m_bottomUpResults);
     emit topDownDataAvailable(Data::TopDownResults::fromBottomUp(m_bottomUpResults));
     emit callerCalleeDataAvailable(m_callerCalleeResults);

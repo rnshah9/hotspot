@@ -63,6 +63,7 @@ signals:
     void parsingFailed(const QString& errorMessage);
     void progress(float progress);
     void stopRequested();
+    void useDiffMode(bool diffMode);
 
     void parserWarning(const QString& errorMessage);
     void exportFinished(const QUrl& url);

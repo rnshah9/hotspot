@@ -51,6 +51,7 @@ ResultsTopDownPage::ResultsTopDownPage(FilterAndZoomStack* filterStack, PerfPars
                 }
             });
 
+    connect(parser, &PerfParser::useDiffMode, topDownCostModel, &TopDownModel::setDiffMode);
     ResultsUtil::setupResultsAggregation(ui->costAggregationComboBox);
 }
 

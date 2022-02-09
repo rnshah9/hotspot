@@ -96,6 +96,7 @@ ResultsBottomUpPage::ResultsBottomUpPage(FilterAndZoomStack* filterStack, PerfPa
             }
         });
 
+    connect(parser, &PerfParser::useDiffMode, bottomUpCostModel, &BottomUpModel::setDiffMode);
     ResultsUtil::setupResultsAggregation(ui->costAggregationComboBox);
 }
 

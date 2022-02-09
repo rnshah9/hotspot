@@ -248,6 +248,11 @@ public:
         return m_results;
     }
 
+    void setDiffMode(bool diffMode)
+    {
+        m_diffMode = diffMode;
+    }
+
 protected:
     const typename Base::TreeNode* rootItem() const final override
     {
@@ -255,6 +260,7 @@ protected:
     }
 
     Results m_results;
+    bool m_diffMode = false;
 };
 
 class BottomUpModel : public CostTreeModel<Data::BottomUpResults, BottomUpModel>
