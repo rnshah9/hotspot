@@ -69,6 +69,7 @@ set(hotspot_SRCS
     callgraphwidget.ui
     callgraphsettingspage.ui
     frequencypage.ui
+    tracepointtimemeasurementspage.ui
 
     # resources:
     resources.qrc

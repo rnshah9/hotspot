@@ -10,6 +10,16 @@
 
 #include <QColor>
 #include <QObject>
+#include <QRegularExpression>
+#include <QVector>
+
+struct TracepointTimeMeasurementsParameters
+{
+    QRegularExpression startRegex;
+    // not really a regex, but it supports \1, ... to reference capture groups from startRegex
+    QString stopExpression;
+    QString name;
+};
 
 class Settings : public QObject
 {
@@ -133,6 +143,8 @@ public:
         return m_costAggregation;
     }
 
+    QVector<TracepointTimeMeasurementsParameters> tracepointParameters();
+
 signals:
     void prettifySymbolsChanged(bool);
     void collapseTemplatesChanged(bool);
@@ -195,3 +207,6 @@ private:
     QColor m_callgraphActiveColor;
     QColor m_callgraphColor;
 };
+
+Q_DECLARE_METATYPE(TracepointTimeMeasurementsParameters)
+Q_DECLARE_TYPEINFO(TracepointTimeMeasurementsParameters, Q_MOVABLE_TYPE);

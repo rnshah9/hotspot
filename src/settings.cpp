@@ -8,6 +8,9 @@
 
 #include <QThread>
 
+#include <KConfigGroup>
+#include <KSharedConfig>
+
 #include "settings.h"
 
 Settings* Settings::instance()
@@ -15,6 +18,24 @@ Settings* Settings::instance()
     static Settings settings;
     Q_ASSERT(QThread::currentThread() == settings.thread());
     return &settings;
+}
+
+QVector<TracepointTimeMeasurementsParameters> Settings::tracepointParameters()
+{
+    auto config = KSharedConfig::openConfig()->group("TracepointsTimeMeasurements");
+    QVector<TracepointTimeMeasurementsParameters> parameters;
+
+    for (const auto& groupName : config.groupList()) {
+        auto group = config.group(groupName);
+
+        TracepointTimeMeasurementsParameters parameter;
+        parameter.startRegex = QRegularExpression(group.readEntry("startRegex"));
+        parameter.stopExpression = group.readEntry("endRegex");
+        parameter.name = group.readEntry("costName");
+
+        parameters.push_back(parameter);
+    }
+    return parameters;
 }
 
 void Settings::setPrettifySymbols(bool prettifySymbols)

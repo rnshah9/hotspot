@@ -813,6 +813,9 @@ public:
     {
         Data::BottomUp::initializeParents(&bottomUpResult.root);
 
+        for (auto it = tracepointCostIdLookup.begin(); it != tracepointCostIdLookup.end(); it++) {
+            bottomUpResult.costs.addTotalCost(it.value(), applicationTime.end - applicationTime.start);
+        }
         summaryResult.applicationTime = applicationTime;
         summaryResult.threadCount = uniqueThreads.size();
         summaryResult.processCount = uniqueProcess.size();
@@ -1015,6 +1018,34 @@ public:
         }
     }
 
+    void addTracepointToTracepointStack(uint32_t tid, const Data::Tracepoint& tracepoint)
+    {
+        auto addToLookup = [this](const QString& name) -> bool {
+            for (const auto& parameters : tracepointParameters) {
+                auto stopName = name;
+                stopName.replace(parameters.startRegex, parameters.stopExpression);
+
+                if (stopName == name) {
+                    continue;
+                }
+
+                tracepointNameRegexCache[name] = stopName;
+                tracepointCostIdLookup[name] = addCostType(parameters.name, Data::Costs::Unit::TracepointCost);
+                return true;
+            }
+            return false;
+        };
+
+        if (!tracepointNameRegexCache.contains(tracepoint.name)) {
+            if (!addToLookup(tracepoint.name)) {
+                return;
+            }
+        }
+
+        tracepointStack[tid].push_back(tracepoint);
+        expectedTracepointName[tid].push_back(tracepointNameRegexCache[tracepoint.name]);
+    }
+
     void addSample(const Sample& sample)
     {
         addSampleToFrequencyData(sample);
@@ -1041,11 +1072,37 @@ public:
             const auto attribute = attributes.value(event.type);
             if (attribute.type == static_cast<quint32>(AttributesDefinition::Type::Tracepoint)) {
                 Data::Tracepoint tracepoint;
-                tracepoint.time = event.time;
+                tracepoint.time = sample.time;
                 tracepoint.name = strings.value(attribute.name.id);
                 if (tracepoint.name != QLatin1String("sched:sched_switch")) {
                     // sched_switch events are handled separately already
                     tracepointResult.tracepoints.push_back(tracepoint);
+                }
+
+                if (expectedTracepointName[sample.tid].isEmpty()) {
+                    addTracepointToTracepointStack(sample.tid, tracepoint);
+                } else {
+                    if (tracepoint.name == expectedTracepointName[sample.tid].last()) {
+                        const auto startTracepoint = tracepointStack[sample.tid].back();
+
+                        const Data::TracepointCost cost = {tracepointCostIdLookup[startTracepoint.name], sample.frames,
+                                                           startTracepoint.time, tracepoint.time};
+
+                        bottomUpResult.addTracepointCost(cost);
+
+                        tracepointStack[sample.tid].pop_back();
+                        expectedTracepointName[sample.tid].pop_back();
+                    } else if (tracepointStack[sample.tid].back().name == tracepoint.name) {
+                        // we got the same tracepoint twice, but not the exspected one
+                        // this happens if the file contains lost samples
+                        // in this case we simply remove the broken tracepoint and emit a warning
+                        tracepointStack[sample.tid].pop_back();
+                        expectedTracepointName[sample.tid].pop_back();
+                        addTracepointToTracepointStack(sample.tid, tracepoint);
+                        droppedTracepoints = true;
+                    } else {
+                        addTracepointToTracepointStack(sample.tid, tracepoint);
+                    }
                 }
             }
         }
@@ -1343,6 +1400,10 @@ public:
     Data::EventResults eventResult;
     Data::TracepointResults tracepointResult;
     Data::FrequencyResults frequencyResult;
+    QHash<qint32, QVector<Data::Tracepoint>> tracepointStack;
+    QHash<qint32, QVector<QString>> expectedTracepointName;
+    QHash<QString, qint32> tracepointCostIdLookup;
+    QHash<QString, QString> tracepointNameRegexCache;
     QHash<qint32, QHash<qint32, QString>> commands;
     QScopedPointer<QTextStream> perfScriptOutput;
     QHash<qint32, SymbolCount> numSymbolsByModule;
@@ -1354,6 +1415,8 @@ public:
     qint32 m_nextCostId = 0;
     qint32 m_schedSwitchCostId = -1;
     QHash<quint32, quint64> m_lastSampleTimePerCore;
+    bool droppedTracepoints = false;
+    QVector<TracepointTimeMeasurementsParameters> tracepointParameters;
     Settings::CostAggregation costAggregation;
 
     // samples recorded without --call-graph have only one frame
@@ -1480,12 +1543,15 @@ void PerfParser::startParseFile(const QString& path)
     m_frequencyResults = {};
 
     auto debuginfodUrls = Settings::instance()->debuginfodUrls();
+    auto tracepointParameters = Settings::instance()->tracepointParameters();
     const auto costAggregation = Settings::instance()->costAggregation();
 
     emit parsingStarted();
     using namespace ThreadWeaver;
-    stream() << make_job([path, parserBinary, debuginfodUrls, costAggregation, this]() {
+    stream() << make_job([path, parserBinary, parserArgs, debuginfodUrls, costAggregation, tracepointParameters,
+                          this]() {
         PerfParserPrivate d(costAggregation);
+        d.tracepointParameters = tracepointParameters;
         connect(&d, &PerfParserPrivate::progress, this, &PerfParser::progress);
         connect(this, &PerfParser::stopRequested, &d, &PerfParserPrivate::stop);
 
@@ -1504,6 +1570,9 @@ void PerfParser::startParseFile(const QString& path)
             if (d.m_numSamplesWithMoreThanOneFrame == 0) {
                 emit parserWarning(tr("Samples contained no call stack frames. Consider passing <code>--call-graph "
                                       "dwarf</code> to <code>perf record</code>."));
+            }
+            if (d.droppedTracepoints) {
+                emit parserWarning(tr("Encountered unexpected tracepoints. Derived cost may be inaccurate."));
             }
         };
 
