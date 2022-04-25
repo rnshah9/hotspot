@@ -40,6 +40,7 @@ public:
 public slots:
     void clear();
     void openFile(const QString& path);
+    void openFile(const QString& path, const QString& diffFile);
     void openFile(const QUrl& url);
     void reload();
     void saveAs();
@@ -47,6 +48,7 @@ public slots:
     void onOpenFileButtonClicked();
     void onRecordButtonClicked();
     void onHomeButtonClicked();
+    void onDiffButtonClicked();
 
     void aboutKDAB();
     void openSettingsDialog();

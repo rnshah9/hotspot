@@ -97,6 +97,11 @@ int main(int argc, char** argv)
     parser.addHelpOption();
     parser.addVersionOption();
 
+    QCommandLineOption diffOption {{QStringLiteral("d"), QStringLiteral("diff")},
+                                   QCoreApplication::translate("main", "Base profile data to compare other files to."),
+                                   QStringLiteral("<file>")};
+    parser.addOption(diffOption);
+
     QCommandLineOption sysroot(QLatin1String("sysroot"),
                                QCoreApplication::translate("main", "Path to sysroot which is used to find libraries."),
                                QLatin1String("path"));
@@ -167,13 +172,19 @@ int main(int argc, char** argv)
 
     const auto settings = Settings::instance();
     applyCliArgs(settings);
+
+    QString diffFile;
+    if (parser.isSet(diffOption)) {
+        diffFile = parser.value(diffOption);
+    }
+
     for (const auto& file : parser.positionalArguments()) {
         auto window = new MainWindow;
         QFileInfo info(file);
         if (info.isFile()) {
-            window->openFile(file);
+            window->openFile(file, diffFile);
         } else if (info.isDir()) {
-            window->openFile(file + QStringLiteral("/perf.data"));
+            window->openFile(file + QStringLiteral("/perf.data"), diffFile);
         }
         window->show();
     }

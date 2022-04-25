@@ -134,7 +134,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_startPage, &StartPage::stopParseButtonClicked, this,
             static_cast<void (MainWindow::*)()>(&MainWindow::clear));
 
-    connect(m_startPage, &StartPage::diffButtonClicked, this, [this] { m_diffDialog->open(); });
+    connect(m_startPage, &StartPage::diffButtonClicked, this, &MainWindow::onDiffButtonClicked);
     connect(m_diffDialog, &QDialog::accepted, this, [this] {
         m_diffDialog->close();
         openFile(m_diffDialog->fileA(), false, m_diffDialog->fileB());
@@ -176,6 +176,10 @@ MainWindow::MainWindow(QWidget* parent)
     m_recentFilesAction = KStandardAction::openRecent(this, SLOT(openFile(QUrl)), this);
     m_recentFilesAction->loadEntries(m_config->group("RecentFiles"));
     ui->fileMenu->addAction(m_recentFilesAction);
+    
+    auto diffAction = new QAction(QIcon::fromTheme(QLatin1String("document-open")), tr("Create diff report"), this);
+    connect(diffAction, &QAction::triggered, this, &MainWindow::onDiffButtonClicked);
+    ui->fileMenu->addAction(diffAction);
     ui->fileMenu->addSeparator();
     m_reloadAction = KStandardAction::redisplay(this, SLOT(reload()), this);
     m_reloadAction->setText(tr("Reload"));
@@ -354,6 +358,11 @@ void MainWindow::onRecordButtonClicked()
     m_pageStack->setCurrentWidget(m_recordPage);
 }
 
+void MainWindow::onDiffButtonClicked()
+{
+    m_diffDialog->open();
+}
+
 void MainWindow::clear(bool isReload)
 {
     m_parser->stop();
@@ -397,9 +406,14 @@ void MainWindow::openFile(const QString& path, bool isReload, const QString& dif
     m_config->sync();
 }
 
+void MainWindow::openFile(const QString& path, const QString& diffFile)
+{
+    openFile(path, false, diffFile);
+}
+
 void MainWindow::openFile(const QString& path)
 {
-    openFile(path, false);
+    openFile(path, false, {});
 }
 
 void MainWindow::openFile(const QUrl& url)
