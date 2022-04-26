@@ -335,6 +335,9 @@ hotspot currently only shows the name of the tracepoints in the timeline.
 
 ![hotspot tracepoints](screenshots/tracepoints.png?raw=true "hotspot tracepoints")
 
+### SSH
+Hotspot can use ssh to run perf on remote machines.
+
 ## Known Issues
 
 If anything breaks in the above and the output is less usable than `perf report`, please [report an issue on GitHub](https://github.com/KDAB/hotspot/issues).
