@@ -58,6 +58,15 @@ ResultsSummaryPage::ResultsSummaryPage(FilterAndZoomStack* filterStack, PerfPars
     ResultsUtil::setupHeaderView(ui->topLibraryTreeView, contextMenu);
     ResultsUtil::setupContextMenu(ui->topLibraryTreeView, contextMenu, perLibraryModel, filterStack, this);
 
+    auto topDiffProxy = new TopProxy(this);
+    topDiffProxy->setSourceModel(bottomUpCostModel);
+
+    ui->topDiffTreeView->setSortingEnabled(false);
+    ui->topDiffTreeView->setModel(topDiffProxy);
+    ResultsUtil::setupCostDelegate<BottomUpModel>(bottomUpCostModel, ui->topDiffTreeView);
+    ResultsUtil::setupHeaderView(ui->topDiffTreeView, contextMenu);
+    ResultsUtil::setupContextMenu(ui->topDiffTreeView, contextMenu, bottomUpCostModel, filterStack, this);
+
     connect(ui->eventSourceComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this,
             [topHotspotsProxy, this]() {
                 topHotspotsProxy->setCostColumn(ui->eventSourceComboBox->currentData().toInt()
@@ -70,13 +79,34 @@ ResultsSummaryPage::ResultsSummaryPage(FilterAndZoomStack* filterStack, PerfPars
                                                + PerLibraryModel::NUM_BASE_COLUMNS);
             });
 
+    connect(ui->diffEventSource, qOverload<int>(&QComboBox::currentIndexChanged), this, [topDiffProxy, this]() {
+        topDiffProxy->setSortColumn(ui->diffEventSource->currentData().toInt() + BottomUpModel::NUM_BASE_COLUMNS + 1);
+        topDiffProxy->setCostColumn(ui->diffEventSource->currentData().toInt() + BottomUpModel::NUM_BASE_COLUMNS);
+    });
+
     connect(parser, &PerfParser::bottomUpDataAvailable, this,
-            [this, bottomUpCostModel](const Data::BottomUpResults& data) {
+            [this, bottomUpCostModel, topHotspotsProxy, topDiffProxy](const Data::BottomUpResults& data) {
                 bottomUpCostModel->setData(data);
+
+                auto useDiffMode = false;
+                if (data.costs.numTypes() > 1) {
+                    useDiffMode = data.costs.unit(1) == Data::Costs::Unit::Diff;
+                }
+                bottomUpCostModel->setDiffMode(useDiffMode);
+                topHotspotsProxy->setShowDiffColumn(useDiffMode);
+                topDiffProxy->setShowDiffColumn(useDiffMode);
+                ui->diffGroupBox->setVisible(useDiffMode);
+                ui->topHotspotsTableView->header()->resize(1, 1);
+
                 ResultsUtil::hideEmptyColumns(data.costs, ui->topHotspotsTableView, BottomUpModel::NUM_BASE_COLUMNS);
                 ResultsUtil::hideTracepointColumns(data.costs, ui->topHotspotsTableView,
                                                    BottomUpModel::NUM_BASE_COLUMNS);
                 ResultsUtil::fillEventSourceComboBox(ui->eventSourceComboBox, data.costs,
+                                                     tr("Show top hotspots for %1 events."));
+
+                ResultsUtil::hideEmptyColumns(data.costs, ui->topDiffTreeView, BottomUpModel::NUM_BASE_COLUMNS);
+                ResultsUtil::hideTracepointColumns(data.costs, ui->topDiffTreeView, BottomUpModel::NUM_BASE_COLUMNS);
+                ResultsUtil::fillEventSourceComboBox(ui->diffEventSource, data.costs,
                                                      tr("Show top hotspots for %1 events."));
             });
 

@@ -18,6 +18,8 @@ public:
     ~TopProxy() override;
 
     void setCostColumn(int costColumn);
+    void setSortColumn(int sortColumn);
+    void setShowDiffColumn(bool showDiffColumn);
     void setNumBaseColumns(int numBaseColumns);
 
     bool filterAcceptsRow(int source_row, const QModelIndex& source_parent) const override;
@@ -27,5 +29,7 @@ public:
 
 private:
     int m_costColumn;
+    int m_sortColumn;
+    bool m_showDiffColumn;
     int m_numBaseColumns;
 };

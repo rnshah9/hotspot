@@ -54,6 +54,12 @@ QVariant BottomUpModel::headerColumnData(int column, int role) const
                 "The name of the executable the symbol resides in. May be empty when debug information is missing.");
         }
 
+        const auto unit = m_results.costs.unit(column - NUM_BASE_COLUMNS);
+
+        if (unit == Data::Costs::Unit::Diff) {
+            return tr("The difference in percent between the baseline cost and this one.");
+        }
+
         return tr("The symbol's inclusive cost of type \"%1\", i.e. the aggregated sample costs attributed to this "
                   "symbol, both directly and indirectly.")
             .arg(m_results.costs.typeName(column - NUM_BASE_COLUMNS));
@@ -72,6 +78,10 @@ QVariant BottomUpModel::rowData(const Data::BottomUp* row, int column, int role)
             return row->symbol.binary;
         }
         if (role == SortRole) {
+            if (m_diffMode && (column - NUM_BASE_COLUMNS) % 2 == 1) {
+                return m_results.costs.cost(column - NUM_BASE_COLUMNS, row->id)
+                    / m_results.costs.cost(column - NUM_BASE_COLUMNS - 1, row->id);
+            }
             return m_results.costs.cost(column - NUM_BASE_COLUMNS, row->id);
         }
         if (m_diffMode && (column - NUM_BASE_COLUMNS) % 2 == 1) {
@@ -129,11 +139,6 @@ QVariant TopDownModel::headerColumnData(int column, int role) const
         }
 
         column -= m_results.inclusiveCosts.numTypes();
-        if (m_diffMode && column % 2 == 1) {
-            return tr("ratio of %1 (self)").arg(m_results.selfCosts.typeName(column));
-        } else if (m_diffMode) {
-            return tr("baseline %1 (self)").arg(m_results.selfCosts.typeName(column));
-        }
         return tr("%1 (self)").arg(m_results.selfCosts.typeName(column));
     } else if (role == Qt::ToolTipRole) {
         switch (column) {
@@ -143,8 +148,15 @@ QVariant TopDownModel::headerColumnData(int column, int role) const
             return tr(
                 "The name of the executable the symbol resides in. May be empty when debug information is missing.");
         }
+
         column -= NUM_BASE_COLUMNS;
         if (column < m_results.inclusiveCosts.numTypes()) {
+            const auto unit = m_results.inclusiveCosts.unit(column);
+
+            if (unit == Data::Costs::Unit::Diff) {
+                return tr("The difference in percent between the baseline cost and this one.");
+            }
+
             return tr("The symbol's inclusive cost of type \"%1\", i.e. the aggregated sample costs attributed to this "
                       "symbol, "
                       "both directly and indirectly. This includes the costs of all functions called by this symbol "
@@ -154,6 +166,13 @@ QVariant TopDownModel::headerColumnData(int column, int role) const
         }
 
         column -= m_results.inclusiveCosts.numTypes();
+
+        const auto unit = m_results.selfCosts.unit(column);
+
+        if (unit == Data::Costs::Unit::Diff) {
+            return tr("The difference in percent between the baseline cost and this one.");
+        }
+
         return tr("The symbol's self cost of type \"%1\", i.e. the aggregated sample costs directly attributed to this "
                   "symbol. "
                   "This excludes the costs of all functions called by this symbol.")

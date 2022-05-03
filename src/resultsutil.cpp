@@ -163,6 +163,7 @@ void hideTracepointColumns(const Data::Costs& costs, QTreeView* view, int numBas
         case Data::Costs::Unit::Tracepoint:
             view->hideColumn(numBaseColumns + i);
         case Data::Costs::Unit::Unknown:
+        case Data::Costs::Unit::Diff:
             break;
         }
     }
@@ -176,6 +177,9 @@ void fillEventSourceComboBox(QComboBox* combo, const Data::Costs& costs, const Q
     combo->clear();
     for (int i = 0, c = costs.numTypes(); i < c; ++i) {
         if (!costs.totalCost(i)) {
+            continue;
+        }
+        if (costs.unit(i) == Data::Costs::Unit::Diff) {
             continue;
         }
         const auto& typeName = costs.typeName(i);

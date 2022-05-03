@@ -12,9 +12,11 @@
 TopProxy::TopProxy(QObject* parent)
     : QSortFilterProxyModel(parent)
     , m_costColumn(BottomUpModel::InitialSortColumn)
+    , m_showDiffColumn(false)
     , m_numBaseColumns(BottomUpModel::NUM_BASE_COLUMNS)
 {
-    sort(m_costColumn, Qt::DescendingOrder);
+    m_sortColumn = m_costColumn;
+    sort(m_sortColumn, Qt::DescendingOrder);
     setSortRole(AbstractTreeModel::SortRole);
 }
 
@@ -24,7 +26,21 @@ void TopProxy::setCostColumn(int costColumn)
 {
     m_costColumn = costColumn;
     invalidate();
-    sort(m_costColumn, Qt::DescendingOrder);
+    sort(m_sortColumn, Qt::DescendingOrder);
+}
+
+void TopProxy::setSortColumn(int sortColumn)
+{
+    m_sortColumn = sortColumn;
+    invalidate();
+    sort(m_sortColumn, Qt::DescendingOrder);
+}
+
+void TopProxy::setShowDiffColumn(bool showDiffColumn)
+{
+    m_showDiffColumn = showDiffColumn;
+    invalidate();
+    sort(m_sortColumn, Qt::DescendingOrder);
 }
 
 void TopProxy::setNumBaseColumns(int numBaseColumns)
@@ -54,5 +70,6 @@ bool TopProxy::filterAcceptsRow(int source_row, const QModelIndex& source_parent
 
 bool TopProxy::filterAcceptsColumn(int source_column, const QModelIndex& /*source_parent*/) const
 {
-    return source_column < m_numBaseColumns || source_column == m_costColumn;
+    return source_column < m_numBaseColumns || source_column == m_costColumn
+        || ((source_column == m_costColumn + 1) && m_showDiffColumn);
 }

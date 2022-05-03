@@ -153,7 +153,8 @@ public:
     {
         Unknown,
         Tracepoint,
-        Time
+        Time,
+        Diff
     };
 
     void increment(int type, quint32 id)
@@ -271,6 +272,7 @@ public:
             return Util::formatTimeString(cost);
         case Unit::Tracepoint:
         case Unit::Unknown:
+        case Unit::Diff:
             break;
         }
         return Util::formatCost(cost);

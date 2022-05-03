@@ -410,7 +410,7 @@ BottomUpResults BottomUpResults::diffBottomUpResults(const BottomUpResults& a, c
         results.costs.addTotalCost(2 * i, a.costs.totalCost(i));
 
         const auto costBType = 2 * i + 1;
-        results.costs.addType(costBType, QLatin1String("ratio %1").arg(b.costs.typeName(i)), a.costs.unit(i));
+        results.costs.addType(costBType, QLatin1String("ratio of %1").arg(b.costs.typeName(i)), Costs::Unit::Diff);
         results.costs.addTotalCost(costBType, b.costs.totalCost(0));
     }
 

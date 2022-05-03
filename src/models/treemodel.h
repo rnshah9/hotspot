@@ -253,6 +253,11 @@ public:
         m_diffMode = diffMode;
     }
 
+    bool diffMode() const
+    {
+        return m_diffMode;
+    }
+
 protected:
     const typename Base::TreeNode* rootItem() const final override
     {
