@@ -55,6 +55,7 @@ signals:
     void tracepointDataAvailable(const Data::TracepointResults& data);
     void frequencyDataAvailable(const Data::FrequencyResults& data);
     void eventsAvailable(const Data::EventResults& events);
+    void tracepointCostAvailable(const QVector<Data::TracepointCost>& tracepointCost);
     void parsingFinished();
     void parsingFailed(const QString& errorMessage);
     void progress(float progress);
@@ -74,6 +75,7 @@ private:
     Data::TracepointResults m_tracepointResults;
     Data::EventResults m_events;
     Data::FrequencyResults m_frequencyResults;
+    QVector<Data::TracepointCost> m_tracepointCost;
     std::atomic<bool> m_isParsing;
     std::atomic<bool> m_stopRequested;
     std::unique_ptr<QTemporaryFile> m_decompressed;

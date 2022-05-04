@@ -1089,6 +1089,7 @@ public:
                                                            startTracepoint.time, tracepoint.time};
 
                         bottomUpResult.addTracepointCost(cost);
+                        tracepointCost.push_back(cost);
 
                         tracepointStack[sample.tid].pop_back();
                         expectedTracepointName[sample.tid].pop_back();
@@ -1401,6 +1402,7 @@ public:
     Data::TracepointResults tracepointResult;
     Data::FrequencyResults frequencyResult;
     QHash<qint32, QVector<Data::Tracepoint>> tracepointStack;
+    QVector<Data::TracepointCost> tracepointCost;
     QHash<qint32, QVector<QString>> expectedTracepointName;
     QHash<QString, qint32> tracepointCostIdLookup;
     QHash<QString, QString> tracepointNameRegexCache;
@@ -1463,6 +1465,12 @@ PerfParser::PerfParser(QObject* parent)
             m_tracepointResults = data;
         }
     });
+    connect(this, &PerfParser::tracepointCostAvailable, this,
+            [this](const QVector<Data::TracepointCost>& tracepointCost) {
+                if (m_tracepointCost.isEmpty()) {
+                    m_tracepointCost = tracepointCost;
+                }
+            });
     connect(this, &PerfParser::parsingStarted, this, [this]() {
         m_isParsing = true;
         m_stopRequested = false;
@@ -1565,6 +1573,7 @@ void PerfParser::startParseFile(const QString& path)
             emit tracepointDataAvailable(d.tracepointResult);
             emit eventsAvailable(d.eventResult);
             emit frequencyDataAvailable(d.frequencyResult);
+            emit tracepointCostAvailable(d.tracepointCost);
             emit parsingFinished();
 
             if (d.m_numSamplesWithMoreThanOneFrame == 0) {
@@ -1697,6 +1706,7 @@ void PerfParser::filterResults(const Data::FilterAction& filter)
         Data::EventResults events = m_events;
         Data::CallerCalleeResults callerCallee;
         Data::TracepointResults tracepointResults = m_tracepointResults;
+        auto tracepointCost = m_tracepointCost;
         auto frequencyResults = m_frequencyResults;
         const bool filterByTime = filter.time.isValid();
         const bool filterByCpu = filter.cpuId != std::numeric_limits<quint32>::max();
@@ -1774,10 +1784,22 @@ void PerfParser::filterResults(const Data::FilterAction& filter)
             }
 
             if (filterByTime) {
-                auto it = std::remove_if(
-                    tracepointResults.tracepoints.begin(), tracepointResults.tracepoints.end(),
-                    [filter](const Data::Tracepoint& tracepoint) { return !filter.time.contains(tracepoint.time); });
-                tracepointResults.tracepoints.erase(it, tracepointResults.tracepoints.end());
+                {
+                    auto it = std::remove_if(tracepointResults.tracepoints.begin(), tracepointResults.tracepoints.end(),
+                                             [filter](const Data::Tracepoint& tracepoint) {
+                                                 return !filter.time.contains(tracepoint.time);
+                                             });
+                    tracepointResults.tracepoints.erase(it, tracepointResults.tracepoints.end());
+                }
+
+                {
+                    auto it = std::remove_if(tracepointCost.begin(), tracepointCost.end(),
+                                             [filter](const Data::TracepointCost& tracepointCost) {
+                                                 return !filter.time.contains(tracepointCost.startTime)
+                                                     && !filter.time.contains(tracepointCost.stopTime);
+                                             });
+                    tracepointCost.erase(it, tracepointCost.end());
+                }
 
                 for (auto& core : frequencyResults.cores) {
                     for (auto& costType : core.costs) {
@@ -1862,6 +1884,16 @@ void PerfParser::filterResults(const Data::FilterAction& filter)
             events.threads.erase(it, events.threads.end());
 
             Data::BottomUp::initializeParents(&bottomUp.root);
+
+            QSet<qint32> costIds;
+            for (const auto& cost : tracepointCost) {
+                costIds.insert(cost.costId);
+                bottomUp.addTracepointCost(cost);
+            }
+
+            for (const auto costIds : costIds) {
+                bottomUp.costs.addTotalCost(costIds, filter.time.delta());
+            }
 
             if (m_stopRequested) {
                 emit parsingFailed(tr("Parsing stopped."));
