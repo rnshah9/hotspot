@@ -79,6 +79,9 @@ QVariant BottomUpModel::rowData(const Data::BottomUp* row, int column, int role)
         }
         if (role == SortRole) {
             if (m_diffMode && (column - NUM_BASE_COLUMNS) % 2 == 1) {
+                if (m_results.costs.cost(column - NUM_BASE_COLUMNS - 1, row->id) == 0) {
+                    return 1;
+                }
                 return m_results.costs.cost(column - NUM_BASE_COLUMNS, row->id)
                     / m_results.costs.cost(column - NUM_BASE_COLUMNS - 1, row->id);
             }
