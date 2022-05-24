@@ -9,7 +9,6 @@
 #include "resultsdisassemblypage.h"
 #include "ui_resultsdisassemblypage.h"
 
-#include <QDebug>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -30,27 +29,61 @@
 #include "resultsutil.h"
 
 #include "data.h"
+#include "models/codedelegate.h"
 #include "models/costdelegate.h"
-#include "models/disassemblydelegate.h"
 #include "models/disassemblymodel.h"
 #include "models/hashmodel.h"
+#include "models/sourcecodemodel.h"
 #include "models/topproxy.h"
 #include "models/treemodel.h"
+
+#include <QDebug>
 
 ResultsDisassemblyPage::ResultsDisassemblyPage(QWidget* parent)
     : QWidget(parent)
     , ui(new Ui::ResultsDisassemblyPage)
-    , m_model(new DisassemblyModel(this))
+    , m_disassemblyModel(new DisassemblyModel(this))
+    , m_sourceCodeModel(new SourceCodeModel(this))
     , m_costDelegate(new CostDelegate(DisassemblyModel::CostRole, DisassemblyModel::TotalCostRole, this))
-    , m_disassemblyDelegate(new DisassemblyDelegate(this))
+    , m_disassemblyDelegate(
+          new DisassemblyDelegate(DisassemblyModel::SourceCodeLine, DisassemblyModel::Highlight, this))
+    , m_sourceCodeDelegate(new CodeDelegate(SourceCodeModel::SourceCodeLineNumber, SourceCodeModel::Highlight, this))
 {
     ui->setupUi(this);
-    ui->asmView->setModel(m_model);
+    ui->assemblyView->setModel(m_disassemblyModel);
+    ui->assemblyView->setMouseTracking(true);
+    ui->sourceCodeView->setModel(m_sourceCodeModel);
+    ui->sourceCodeView->setMouseTracking(true);
+
+    auto updateFromDisassembly = [this](const QModelIndex& index) {
+        int line = m_disassemblyModel->lineForIndex(index);
+        m_disassemblyModel->updateHighlighting(line);
+        m_sourceCodeModel->updateHighlighting(line);
+    };
+
+    auto updateFromSource = [this](const QModelIndex& index) {
+        int line = m_sourceCodeModel->lineForIndex(index);
+        m_disassemblyModel->updateHighlighting(line);
+        m_sourceCodeModel->updateHighlighting(line);
+    };
+
+    connect(ui->assemblyView, &QTreeView::entered, this, updateFromDisassembly);
+
+    connect(ui->sourceCodeView, &QTreeView::entered, this, updateFromSource);
+
+    connect(ui->sourceCodeView, qOverload<const QModelIndex&>(&QTreeView::entered), this, [this] {
+        ui->sourceCodeView->update();
+        ui->assemblyView->update();
+    });
+    connect(ui->assemblyView, qOverload<const QModelIndex&>(&QTreeView::entered), this, [this] {
+        ui->sourceCodeView->update();
+        ui->assemblyView->update();
+    });
 
     connect(m_disassemblyDelegate, &DisassemblyDelegate::gotoFunction, this,
             [this](const QString& functionName, int offset) {
                 if (m_curSymbol.symbol == functionName) {
-                    ui->asmView->scrollTo(m_model->findIndexWithOffset(offset),
+                    ui->assemblyView->scrollTo(m_disassemblyModel->findIndexWithOffset(offset),
                                           QAbstractItemView::ScrollHint::PositionAtTop);
                 } else {
                     const auto symbol = std::find_if(
@@ -60,7 +93,6 @@ ResultsDisassemblyPage::ResultsDisassemblyPage(QWidget* parent)
                     if (symbol != m_callerCalleeResults.entries.keyEnd()) {
                         setSymbol(*symbol);
                         showDisassembly();
-                        emit jumpToCallerCallee(*symbol);
                     }
                 }
             });
@@ -70,20 +102,33 @@ ResultsDisassemblyPage::~ResultsDisassemblyPage() = default;
 
 void ResultsDisassemblyPage::clear()
 {
-    m_model->clear();
+    m_disassemblyModel->clear();
+    m_sourceCodeModel->clear();
 }
 
 void ResultsDisassemblyPage::setupAsmViewModel()
 {
-    ui->asmView->header()->setStretchLastSection(false);
-    ui->asmView->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-    ui->asmView->hideColumn(DisassemblyModel::LinkedFunctionName);
-    ui->asmView->hideColumn(DisassemblyModel::LinkedFunctionOffset);
-    ui->asmView->setItemDelegateForColumn(0, m_disassemblyDelegate);
-    for (int col = 1; col < m_model->columnCount(); col++) {
-        ui->asmView->setColumnWidth(col, 100);
-        ui->asmView->header()->setSectionResizeMode(col, QHeaderView::Interactive);
-        ui->asmView->setItemDelegateForColumn(col, m_costDelegate);
+    ui->sourceCodeView->header()->setStretchLastSection(false);
+    ui->sourceCodeView->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+
+    ui->assemblyView->header()->setStretchLastSection(false);
+    ui->assemblyView->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    ui->assemblyView->hideColumn(DisassemblyModel::LinkedFunctionName);
+    ui->assemblyView->hideColumn(DisassemblyModel::LinkedFunctionOffset);
+    ui->assemblyView->hideColumn(DisassemblyModel::SourceCodeLine);
+    ui->assemblyView->hideColumn(DisassemblyModel::Highlight);
+
+    ui->sourceCodeView->hideColumn(SourceCodeModel::SourceCodeLineNumber);
+    ui->sourceCodeView->hideColumn(SourceCodeModel::Highlight);
+
+    ui->assemblyView->setSelectionMode(QTreeView::NoSelection);
+
+    ui->assemblyView->setItemDelegateForColumn(0, m_disassemblyDelegate);
+    ui->sourceCodeView->setItemDelegateForColumn(0, m_sourceCodeDelegate);
+    for (int col = 1; col < m_disassemblyModel->columnCount(); col++) {
+        ui->assemblyView->setColumnWidth(col, 100);
+        ui->assemblyView->header()->setSectionResizeMode(col, QHeaderView::Interactive);
+        ui->assemblyView->setItemDelegateForColumn(col, m_costDelegate);
     }
 }
 
@@ -111,7 +156,8 @@ void ResultsDisassemblyPage::showDisassembly()
 
 void ResultsDisassemblyPage::showDisassembly(const DisassemblyOutput& disassemblyOutput)
 {
-    m_model->clear();
+    m_disassemblyModel->clear();
+    m_sourceCodeModel->clear();
 
     const auto& entry = m_callerCalleeResults.entry(m_curSymbol);
 
@@ -128,7 +174,8 @@ void ResultsDisassemblyPage::showDisassembly(const DisassemblyOutput& disassembl
 
     ui->errorMessage->hide();
 
-    m_model->setDisassembly(disassemblyOutput);
+    m_disassemblyModel->setDisassembly(disassemblyOutput);
+    m_sourceCodeModel->setDisassembly(disassemblyOutput);
 
     setupAsmViewModel();
 }
@@ -141,7 +188,7 @@ void ResultsDisassemblyPage::setSymbol(const Data::Symbol& symbol)
 void ResultsDisassemblyPage::setCostsMap(const Data::CallerCalleeResults& callerCalleeResults)
 {
     m_callerCalleeResults = callerCalleeResults;
-    m_model->setResults(m_callerCalleeResults);    
+    m_disassemblyModel->setResults(m_callerCalleeResults);
 }
 
 void ResultsDisassemblyPage::setObjdump(const QString& objdump)

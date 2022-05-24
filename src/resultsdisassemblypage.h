@@ -28,9 +28,11 @@ class QTreeView;
 class QStandardItemModel;
 class QTemporaryFile;
 class CostDelegate;
+class CodeDelegate;
 class DisassemblyDelegate;
 struct DisassemblyOutput;
 class DisassemblyModel;
+class SourceCodeModel;
 
 class ResultsDisassemblyPage : public QWidget
 {
@@ -55,7 +57,8 @@ private:
 
     QScopedPointer<Ui::ResultsDisassemblyPage> ui;
     // Model
-    DisassemblyModel* m_model;
+    DisassemblyModel* m_disassemblyModel;
+    SourceCodeModel* m_sourceCodeModel;
     // Current chosen function symbol
     Data::Symbol m_curSymbol;
     // Architecture
@@ -67,4 +70,5 @@ private:
     // Cost delegate
     CostDelegate* m_costDelegate;
     DisassemblyDelegate* m_disassemblyDelegate;
+    CodeDelegate* m_sourceCodeDelegate;
 };

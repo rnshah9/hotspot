@@ -8,6 +8,7 @@
 
 #include "disassemblyoutput.h"
 #include "data.h"
+#include <tuple>
 #include <QApplication>
 #include <QDebug>
 #include <QProcess>
@@ -47,15 +48,18 @@ DisassemblyOutput::LinkedFunction extractLinkedFunction(const QString& disassemb
 }
 }
 
-static QVector<DisassemblyOutput::DisassemblyLine> objdumpParse(const QByteArray &output)
+static std::tuple<QVector<DisassemblyOutput::DisassemblyLine>, QString> objdumpParse(const QByteArray& output)
 {
     QVector<DisassemblyOutput::DisassemblyLine> disassemblyLines;
 
     QTextStream stream(output);
     QString asmLine;
+    QString sourceFileName;
     // detect lines like:
     // 4f616: 84 c0 test %al,%al
-    static const QRegularExpression disassemblyRegex(QStringLiteral("^[ ]+([0-9a-f]{4,}):\t[0-9a-f ]{2,}"));
+    static const QRegularExpression disassemblyRegex(QStringLiteral("^[ ]+([0-9a-f]{4,}):\t"));
+
+    int sourceCodeLine = 0;
     while (stream.readLineInto(&asmLine))
     {
         if (asmLine.isEmpty() || asmLine.startsWith(QLatin1String("Disassembly")))
@@ -65,11 +69,37 @@ static QVector<DisassemblyOutput::DisassemblyLine> objdumpParse(const QByteArray
         const int colonIndex = asmLine.indexOf(QLatin1Char(':'));
         const int angleBracketIndex = asmLine.indexOf(QLatin1Char('<'));
         if (angleBracketIndex > 0 && colonIndex > angleBracketIndex) {
+            // -l add a line like:
+            // main():
+            // after 0000000000001090 <main>:
+            stream.readLine();
             continue;
         }
 
         // we don't care about the file name
         if (asmLine.startsWith(QLatin1Char('/')) && asmLine.contains(QStringLiteral("file format"))) {
+            continue;
+        } else if (asmLine.startsWith(QLatin1Char('/'))) {
+            // extract source code line info
+            // these look like this:
+            // - /usr/include/c++/11.2.0/bits/stl_tree.h:2083 (discriminator 1)
+            // - /usr/include/c++/11.2.0/bits/stl_tree.h:3452
+
+            auto lineNumber = asmLine.right(asmLine.length() - colonIndex - 1);
+
+            if (sourceFileName.isEmpty()) {
+                sourceFileName = asmLine.left(colonIndex);
+            }
+
+            const auto spaceIndex = lineNumber.indexOf(QLatin1Char(' '));
+            if (spaceIndex != -1) {
+                lineNumber = lineNumber.left(spaceIndex);
+            }
+            bool ok = false;
+            int number = lineNumber.toInt(&ok);
+            if (ok) {
+                sourceCodeLine = number;
+            }
             continue;
         }
 
@@ -84,9 +114,9 @@ static QVector<DisassemblyOutput::DisassemblyLine> objdumpParse(const QByteArray
             }
         }
 
-        disassemblyLines.push_back({addr, asmLine, extractLinkedFunction(asmLine)});
+        disassemblyLines.push_back({addr, asmLine, extractLinkedFunction(asmLine), sourceCodeLine});
     }
-    return disassemblyLines;
+    return {disassemblyLines, sourceFileName};
 }
 
 DisassemblyOutput DisassemblyOutput::disassemble(const QString& objdump, const QString& arch,
@@ -116,9 +146,10 @@ DisassemblyOutput DisassemblyOutput::disassemble(const QString& objdump, const Q
 
     // Call objdump with arguments: addresses range and binary file
     auto toHex = [](quint64 addr) -> QString { return QLatin1String("0x") + QString::number(addr, 16); };
-    const auto arguments = QStringList {QStringLiteral("-d"),
-                                        QStringLiteral("-S"),
-                                        QStringLiteral("-C"),
+    const auto arguments = QStringList {QStringLiteral("-d"), // disassemble
+                                        QStringLiteral("-l"), // include source code lines
+                                        QStringLiteral("--visualize-jumps"),
+                                        QStringLiteral("-C"), // demange names
                                         QStringLiteral("--start-address"),
                                         toHex(symbol.relAddr),
                                         QStringLiteral("--stop-address"),
@@ -140,6 +171,8 @@ DisassemblyOutput DisassemblyOutput::disassemble(const QString& objdump, const Q
         disassemblyOutput.errorMessage += QApplication::tr("Empty output of command %1").arg(objdump);
     }
 
-    disassemblyOutput.disassemblyLines = objdumpParse(output);
+    const auto objdumpOutput = objdumpParse(output);
+    disassemblyOutput.disassemblyLines = std::get<0>(objdumpOutput);
+    disassemblyOutput.sourceFileName = std::get<1>(objdumpOutput);
     return disassemblyOutput;
 }
