@@ -20,4 +20,4 @@ RUN pacman -Sy --noconfirm gcc extra-cmake-modules threadweaver kconfigwidgets k
 
 ADD . /opt/hotspot/
 
-RUN cd hotspot && mkdir build && cd build && cmake .. && make
+RUN cd hotspot && mkdir build && cd build && cmake -DBUILD_WITH_ASAN=ON .. && make

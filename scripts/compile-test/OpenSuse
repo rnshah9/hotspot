@@ -23,4 +23,4 @@ RUN zypper --non-interactive in cmake gcc-c++ extra-cmake-modules threadweaver-d
     libqt5-qtbase-devel libqt5-qtsvg-devel libelf-devel libdw-devel gettext glibc-devel-static \
     knotifications-devel kiconthemes-devel libzstd-devel binutils
 
-RUN cd hotspot && git submodule update --init --recursive && mkdir build && cd build && cmake .. && make
+RUN cd hotspot && git submodule update --init --recursive && mkdir build && cd build && cmake -DBUILD_WITH_ASAN=ON .. && make

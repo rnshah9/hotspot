@@ -37,4 +37,4 @@ RUN add-apt-repository ppa:kubuntu-ppa/backports && \
 
 ADD . /opt/hotspot/
 
-RUN cd hotspot && mkdir build && cd build && cmake .. && make
+RUN cd hotspot && mkdir build && cd build && cmake -DBUILD_WITH_ASAN=ON .. && make
