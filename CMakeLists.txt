@@ -21,6 +21,8 @@ endif()
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(BUILD_WITH_ASAN "Build hotspot with asan support" ON)
+
 # Enable the test harness
 enable_testing()
 

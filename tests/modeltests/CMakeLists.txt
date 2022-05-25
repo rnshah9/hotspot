@@ -1,5 +1,10 @@
 include_directories(../../src)
 
+if (${BUILD_WITH_ASAN})
+    add_compile_options(-fsanitize=address)
+    add_link_options(-fsanitize=address)
+endif()
+
 ecm_add_test(
     tst_models.cpp
     LINK_LIBRARIES

@@ -123,6 +123,11 @@ if (QCustomPlot_FOUND)
         QCustomPlot::QCustomPlot)
 endif(QCustomPlot_FOUND)
 
+if (${BUILD_WITH_ASAN})
+    target_compile_options(hotspot PRIVATE -fsanitize=address)
+    target_link_options(hotspot PRIVATE -fsanitize=address)
+endif()
+
 set_target_properties(hotspot
     PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/${KDE_INSTALL_BINDIR}"

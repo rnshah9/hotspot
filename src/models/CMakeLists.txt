@@ -20,6 +20,11 @@ add_library(models STATIC
     disassemblydelegate.cpp
 )
 
+if (${BUILD_WITH_ASAN})
+    target_compile_options(models PRIVATE -fsanitize=address)
+    target_link_options(models PRIVATE -fsanitize=address)
+endif()
+
 target_link_libraries(models
     Qt5::Core
     Qt5::Widgets
