@@ -44,7 +44,8 @@ ResultsDisassemblyPage::ResultsDisassemblyPage(QWidget* parent)
     , ui(new Ui::ResultsDisassemblyPage)
     , m_disassemblyModel(new DisassemblyModel(this))
     , m_sourceCodeModel(new SourceCodeModel(this))
-    , m_costDelegate(new CostDelegate(DisassemblyModel::CostRole, DisassemblyModel::TotalCostRole, this))
+    , m_disassemblyCostDelegate(new CostDelegate(DisassemblyModel::CostRole, DisassemblyModel::TotalCostRole, this))
+    , m_sourceCodeCostDelegate(new CostDelegate(DisassemblyModel::CostRole, DisassemblyModel::TotalCostRole, this))
     , m_disassemblyDelegate(
           new DisassemblyDelegate(DisassemblyModel::SourceCodeLine, DisassemblyModel::Highlight, this))
     , m_sourceCodeDelegate(new CodeDelegate(SourceCodeModel::SourceCodeLineNumber, SourceCodeModel::Highlight, this))
@@ -70,15 +71,6 @@ ResultsDisassemblyPage::ResultsDisassemblyPage(QWidget* parent)
     connect(ui->assemblyView, &QTreeView::entered, this, updateFromDisassembly);
 
     connect(ui->sourceCodeView, &QTreeView::entered, this, updateFromSource);
-
-    connect(ui->sourceCodeView, qOverload<const QModelIndex&>(&QTreeView::entered), this, [this] {
-        ui->sourceCodeView->update();
-        ui->assemblyView->update();
-    });
-    connect(ui->assemblyView, qOverload<const QModelIndex&>(&QTreeView::entered), this, [this] {
-        ui->sourceCodeView->update();
-        ui->assemblyView->update();
-    });
 
     connect(m_disassemblyDelegate, &DisassemblyDelegate::gotoFunction, this,
             [this](const QString& functionName, int offset) {
@@ -128,7 +120,13 @@ void ResultsDisassemblyPage::setupAsmViewModel()
     for (int col = 1; col < m_disassemblyModel->columnCount(); col++) {
         ui->assemblyView->setColumnWidth(col, 100);
         ui->assemblyView->header()->setSectionResizeMode(col, QHeaderView::Interactive);
-        ui->assemblyView->setItemDelegateForColumn(col, m_costDelegate);
+        ui->assemblyView->setItemDelegateForColumn(col, m_disassemblyCostDelegate);
+    }
+
+    for (int col = 1; col < m_sourceCodeModel->columnCount(); col++) {
+        ui->sourceCodeView->setColumnWidth(col, 100);
+        ui->sourceCodeView->header()->setSectionResizeMode(col, QHeaderView::Interactive);
+        ui->sourceCodeView->setItemDelegateForColumn(col, m_sourceCodeCostDelegate);
     }
 }
 
@@ -189,6 +187,7 @@ void ResultsDisassemblyPage::setCostsMap(const Data::CallerCalleeResults& caller
 {
     m_callerCalleeResults = callerCalleeResults;
     m_disassemblyModel->setResults(m_callerCalleeResults);
+    m_sourceCodeModel->setCallerCalleeResults(m_callerCalleeResults);
 }
 
 void ResultsDisassemblyPage::setObjdump(const QString& objdump)

@@ -8,7 +8,9 @@
 
 #pragma once
 
+#include "data.h"
 #include "disassemblyoutput.h"
+
 #include <QAbstractTableModel>
 
 class SourceCodeModel : public QAbstractTableModel
@@ -38,12 +40,22 @@ public:
         COLUMN_COUNT
     };
 
+    enum CustomRoles
+    {
+        CostRole = Qt::UserRole,
+        TotalCostRole
+    };
+
 public slots:
     void updateHighlighting(int line);
+    void setCallerCalleeResults(const Data::CallerCalleeResults& results);
 
 private:
+    QSet<int> m_validLineNumbers;
+    Data::CallerCalleeResults m_callerCalleeResults;
+    Data::Costs m_costs;
+    int m_numTypes = 0;
     QStringList m_sourceCode;
     int m_lineOffset = 0;
     int m_highlightLine = 0;
-    QSet<int> m_validLineNumbers;
 };

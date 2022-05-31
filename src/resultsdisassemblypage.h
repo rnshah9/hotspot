@@ -68,7 +68,8 @@ private:
     // Map of symbols and its locations with costs
     Data::CallerCalleeResults m_callerCalleeResults;
     // Cost delegate
-    CostDelegate* m_costDelegate;
+    CostDelegate* m_disassemblyCostDelegate;
+    CostDelegate* m_sourceCodeCostDelegate;
     DisassemblyDelegate* m_disassemblyDelegate;
     CodeDelegate* m_sourceCodeDelegate;
 };

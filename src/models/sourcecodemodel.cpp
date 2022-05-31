@@ -34,12 +34,16 @@ void SourceCodeModel::setDisassembly(const DisassemblyOutput& disassemblyOutput)
 
     beginResetModel();
 
+    m_validLineNumbers.clear();
+    m_costs = {};
+    m_costs.initializeCostsFrom(m_callerCalleeResults.selfCosts);
+
     const auto lines = QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'));
 
     int maxIndex = 0;
     int minIndex = INT_MAX;
 
-    m_validLineNumbers.clear();
+    auto entry = m_callerCalleeResults.entry(disassemblyOutput.symbol);
 
     for (const auto& line : disassemblyOutput.disassemblyLines) {
         if (line.sourceCodeLine == 0)
@@ -51,6 +55,16 @@ void SourceCodeModel::setDisassembly(const DisassemblyOutput& disassemblyOutput)
         if (line.sourceCodeLine < minIndex) {
             minIndex = line.sourceCodeLine;
         }
+
+        auto it = entry.offsetMap.find(line.addr);
+        if (it != entry.offsetMap.end()) {
+            const auto& locationCost = it.value();
+            const auto& costLine = locationCost.selfCost;
+            const auto totalCost = m_callerCalleeResults.selfCosts.totalCosts();
+
+            m_costs.add(line.sourceCodeLine, costLine);
+        }
+
         m_validLineNumbers.insert(line.sourceCodeLine);
     }
 
@@ -94,6 +108,10 @@ QVariant SourceCodeModel::headerData(int section, Qt::Orientation orientation, i
         return tr("Highlight");
     }
 
+    if (section - COLUMN_COUNT < m_numTypes) {
+        return m_callerCalleeResults.selfCosts.typeName(section - COLUMN_COUNT);
+    }
+
     return {};
 }
 
@@ -107,7 +125,7 @@ QVariant SourceCodeModel::data(const QModelIndex& index, int role) const
 
     const auto& line = m_sourceCode.at(index.row());
 
-    if (role == Qt::DisplayRole || role == Qt::ToolTipRole) {
+    if (role == Qt::DisplayRole || role == Qt::ToolTipRole || role == CostRole || role == TotalCostRole) {
         if (index.column() == SourceCodeColumn)
             return line;
 
@@ -121,13 +139,26 @@ QVariant SourceCodeModel::data(const QModelIndex& index, int role) const
         if (index.column() == Highlight) {
             return index.row() + m_lineOffset == m_highlightLine;
         }
+
+        if (index.column() - COLUMN_COUNT < m_numTypes) {
+            const auto cost = m_costs.cost(index.column() - COLUMN_COUNT, index.row() + m_lineOffset);
+            const auto totalCost = m_costs.totalCost(index.column() - COLUMN_COUNT);
+            if (role == CostRole) {
+                return cost;
+            }
+            if (role == TotalCostRole) {
+                return totalCost;
+            }
+
+            return Util::formatCostRelative(cost, totalCost, true);
+        }
     }
     return {};
 }
 
 int SourceCodeModel::columnCount(const QModelIndex& parent) const
 {
-    return parent.isValid() ? 0 : COLUMN_COUNT;
+    return parent.isValid() ? 0 : COLUMN_COUNT + m_numTypes;
 }
 
 int SourceCodeModel::rowCount(const QModelIndex& parent) const
@@ -144,4 +175,12 @@ void SourceCodeModel::updateHighlighting(int line)
 int SourceCodeModel::lineForIndex(const QModelIndex& index)
 {
     return index.row() + m_lineOffset;
+}
+
+void SourceCodeModel::setCallerCalleeResults(const Data::CallerCalleeResults& results)
+{
+    beginResetModel();
+    m_callerCalleeResults = results;
+    m_numTypes = results.selfCosts.numTypes();
+    endResetModel();
 }
