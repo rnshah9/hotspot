@@ -637,13 +637,13 @@ private slots:
         }
 
         QFile file(actualBinaryFile);
-        file.open(QIODevice::WriteOnly);
+        file.open(QIODevice::ReadOnly);
 
         QString actual;
         QTextStream stream(&actual);
         dump(m_bottomUpData.root, stream, "");
 
-        Q_ASSERT(file.readAll() == actual);
+        QCOMPARE(actual, file.readAll());
     }
 
 #if KF5Archive_FOUND
