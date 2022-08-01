@@ -3,7 +3,7 @@ target: elfwalk
 testsuite:
   - file://test
 cmds:
-  - cmd: /repo/build/tests/integrationtests/elfwalk @@
+  - cmd: /elfwalk @@
     env:
       DISABLE_SMOKETEST: '1'
     max_length: 40000
