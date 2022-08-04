@@ -1,0 +1,15 @@
+FROM ubuntu:22.04
+
+# install dependencies
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y qtbase5-dev qtbase5-private-dev libqt5svg5-dev libqt5x11extras5-dev \
+        cmake libdwarf-dev mesa-common-dev libqcustomplot-dev \
+        libboost-iostreams-dev libboost-program-options-dev libboost-system-dev libboost-filesystem-dev \
+        build-essential curl git wget autotools-dev autoconf libtool liblzma-dev libz-dev gettext cmake \
+        libzstd-dev ninja-build libdw-dev libelf-dev extra-cmake-modules \
+        libkf5archive-dev libkf5threadweaver-dev libkf5i18n-dev libkf5configwidgets-dev \
+        libkf5coreaddons-dev libkf5itemviews-dev libkf5itemmodels-dev libkf5kio-dev libkf5parts-dev \
+        libkf5solid-dev libkf5windowsystem-dev libkf5notifications-dev libkf5iconthemes-dev

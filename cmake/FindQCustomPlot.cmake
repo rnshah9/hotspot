@@ -31,10 +31,14 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-find_library(QCustomPlot_LIBRARY qcustomplot)
+find_library(QCustomPlot_LIBRARY
+    NAMES qcustomplot qcustomplot-qt5
+)
 set(QCustomPlot_LIBRARIES "${QCustomPlot_LIBRARY}")
 
-find_path(QCustomPlot_INCLUDE_DIR qcustomplot.h)
+find_path(QCustomPlot_INCLUDE_DIR
+    NAMES qcustomplot.h
+)
 set(QCustomPlot_INCLUDE_DIRS "${QCustomPlot_INCLUDE_DIR}")
 
 include(FindPackageHandleStandardArgs)
@@ -51,7 +55,7 @@ mark_as_advanced(
 )
 
 if (QCUSTOMPLOT_FOUND)
-    add_library(QCustomPlot UNKNOWN IMPORTED)
+    add_library(QCustomPlot UNKNOWN IMPORTED GLOBAL)
     set_target_properties(QCustomPlot PROPERTIES IMPORTED_LOCATION ${QCustomPlot_LIBRARY})
     target_include_directories(QCustomPlot INTERFACE ${QCustomPlot_INCLUDE_DIRS})
     add_library(QCustomPlot::QCustomPlot ALIAS QCustomPlot)

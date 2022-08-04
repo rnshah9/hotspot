@@ -1,0 +1,130 @@
+name: compile and test
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  pre_job:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+    - id: skip_check
+      uses: fkirc/skip-duplicate-actions@v4
+      with:
+        # All of these options are optional, so you can remove them if you are happy with the defaults
+        concurrent_skipping: 'same_content'
+        do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
+
+  ubuntu-2004:
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+
+    runs-on: ubuntu-latest
+    container: ghcr.io/kdab/hotspot-ubuntu20.04-dependencies
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -G Ninja >
+          -DCMAKE_CXX_FLAGS_DEBUG="-g -fsanitize=address,undefined" >
+          -DCMAKE_C_FLAGS_DEBUG="-g -fsanitize=address,undefined"
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure -E tst_perfdata
+
+  ubuntu-2204:
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+
+    runs-on: ubuntu-latest
+    container: ghcr.io/kdab/hotspot-ubuntu22.04-dependencies
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: cmake --preset dev-asan
+
+    - name: Build
+      run: cmake --build build-dev-asan
+
+    - name: Test
+      run: ctest --preset dev-asan
+
+  archlinux:
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+
+    runs-on: ubuntu-latest
+    container: ghcr.io/kdab/hotspot-archlinux-dependencies
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: cmake --preset dev-asan
+
+    - name: Build
+      run: cmake --build --preset dev-asan
+
+    - name: Test
+      run: ctest --preset dev-asan
+
+  fedora34:
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+
+    runs-on: ubuntu-latest
+    container: ghcr.io/kdab/hotspot-fedora34-dependencies
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -G Ninja >
+          -DCMAKE_CXX_FLAGS_DEBUG="-g -fsanitize=address,undefined" >
+          -DCMAKE_C_FLAGS_DEBUG="-g -fsanitize=address,undefined"
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure
+
+  opensuse-tumbleweed:
+    needs: pre_job
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+
+    runs-on: ubuntu-latest
+    container: ghcr.io/kdab/hotspot-opensusetumbleweed-dependencies
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: cmake --preset dev-asan
+
+    - name: Build
+      run: cmake --build --preset dev-asan
+
+    - name: Test
+      run: ctest --preset dev-asan

@@ -54,6 +54,8 @@ public slots:
     void setCodeNavigationIDE(QAction* action);
     void navigateToCode(const QString& url, int lineNumber, int columnNumber);
 
+    static void openInNewWindow(const QString& file, const QStringList& args = {});
+
 signals:
     void openFileError(const QString& errorMessage);
 
@@ -72,7 +74,6 @@ private:
     ResultsPage* m_resultsPage;
     SettingsDialog* m_settingsDialog;
 
-    QString m_lastUsedSettings;
     KRecentFilesAction* m_recentFilesAction = nullptr;
     QAction* m_reloadAction = nullptr;
     QAction* m_exportAction = nullptr;

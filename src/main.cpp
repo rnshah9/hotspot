@@ -145,53 +145,60 @@ int main(int argc, char** argv)
     ThreadWeaver::Queue::instance()->setMaximumNumberOfThreads(QThread::idealThreadCount());
 
     auto applyCliArgs = [&](Settings* settings) {
-        if (parser.isSet(sysroot)) {
-            settings->setSysroot(parser.value(sysroot));
-        }
-        if (parser.isSet(kallsyms)) {
-            settings->setKallsyms(parser.value(kallsyms));
-        }
-        if (parser.isSet(debugPaths)) {
-            settings->setDebugPaths(parser.value(debugPaths));
-        }
-        if (parser.isSet(extraLibPaths)) {
-            settings->setExtraLibPaths(parser.value(extraLibPaths));
-        }
-        if (parser.isSet(appPath)) {
-            settings->setAppPath(parser.value(appPath));
-        }
-        if (parser.isSet(arch)) {
-            settings->setArch(parser.value(arch));
-        }
+        using Setter = void (Settings::*)(const QString&);
+        auto applyArg = [&](const QCommandLineOption& arg, Setter setter) {
+            if (parser.isSet(arg)) {
+                // set a custom env when any arg is set on the mainwindow
+                // we don't want to overwrite the previous one's with our custom settings
+                settings->setLastUsedEnvironment({});
+
+                (settings->*setter)(parser.value(arg));
+            }
+        };
+        applyArg(sysroot, &Settings::setSysroot);
+        applyArg(kallsyms, &Settings::setKallsyms);
+        applyArg(debugPaths, &Settings::setDebugPaths);
+        applyArg(extraLibPaths, &Settings::setExtraLibPaths);
+        applyArg(appPath, &Settings::setAppPath);
+        applyArg(arch, &Settings::setArch);
     };
 
     const auto settings = Settings::instance();
+    settings->loadFromFile();
     applyCliArgs(settings);
-    for (const auto& file : parser.positionalArguments()) {
-        auto window = new MainWindow;
+
+    auto files = parser.positionalArguments();
+    const auto originalArguments = app.arguments();
+    // remove leading executable name and trailing positional arguments
+    const auto minimalArguments = originalArguments.mid(1, originalArguments.size() - 1 - files.size());
+
+    while (files.size() > 1) {
+        // spawn new instances if we have more than one file argument
+        const auto file = files.takeLast();
+        MainWindow::openInNewWindow(file, minimalArguments);
+    }
+
+    // we now only have at most one file
+    Q_ASSERT(files.size() <= 1);
+
+    auto window = new MainWindow;
+    if (!files.isEmpty()) {
+        const auto file = files.front();
         QFileInfo info(file);
         if (info.isFile()) {
             window->openFile(file);
         } else if (info.isDir()) {
             window->openFile(file + QStringLiteral("/perf.data"));
         }
-        window->show();
-    }
-
-    // show at least one mainwindow
-    if (parser.positionalArguments().isEmpty()) {
-        auto window = new MainWindow;
-        applyCliArgs(Settings::instance());
-
+    } else {
         // open perf.data in current CWD, if it exists
         // this brings hotspot closer to the behavior of "perf report"
         const auto perfDataFile = QStringLiteral("perf.data");
         if (QFile::exists(perfDataFile)) {
             window->openFile(perfDataFile);
         }
-
-        window->show();
     }
+    window->show();
 
     return app.exec();
 }
