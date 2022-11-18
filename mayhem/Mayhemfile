@@ -6,4 +6,4 @@ cmds:
   - cmd: /elfwalk @@
     env:
       DISABLE_SMOKETEST: '1'
-    max_length: 40000
+    max_length: 10000
